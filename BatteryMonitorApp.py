@@ -9,10 +9,23 @@ import threading
 import os
 import time
 
+# The alternative of winsound for Linux and macOS, also works for windows
+#try:
+#    import winsound
+#except ImportError:
+#    import os
+#    def playsound(frequency,duration):
+#        #apt-get install beep
+#        os.system('beep -f %s -l %s' % (frequency,duration))
+#else:
+#    def playsound(frequency,duration):
+#        winsound.Beep(frequency,duration)
+
+battery = psutil.sensors_battery()
+
 class BatteryMonitorApp:
 
     def get_current_percentage(self):
-        battery = psutil.sensors_battery()
         if battery:
             return battery.percent
         return 0
@@ -20,7 +33,7 @@ class BatteryMonitorApp:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Battery Monitoring App") # Title
-        self.root.geometry("450x300") # App dimentions
+        self.root.geometry("550x300") # App dimentions
         self.is_monitoring = False
         
         #Define Application Variables
@@ -140,10 +153,9 @@ class BatteryMonitorApp:
 
     def monitor_battery(self, desired_percentage):
         while self.is_monitoring:
-            battery = psutil.sensors_battery()
             if battery:
                 current_percentage = battery.percent 
-                if psutil.sensors_battery().power_plugged:
+                if battery.power_plugged:
                     if current_percentage == desired_percentage:
                         if self.play_sound_var.get() and self.custom_tune_path:
                             winsound.PlaySound(self.custom_tune_path, winsound.SND_FILENAME)
@@ -164,7 +176,7 @@ class BatteryMonitorApp:
         if self.is_monitoring:
             messagebox.showinfo("Monitoring Active", "Monitoring is already active.")
             return
-
+        # Define gloabal var instead of using psutil.sensors... every time
         current_percentage = self.get_current_percentage()
         desired_percentage = self.percentage_slider.get()
         is_plugged = psutil.sensors_battery().power_plugged
