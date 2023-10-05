@@ -20,10 +20,10 @@ This app was made to help people monitor the charging process of their batteries
          <li> "Play Custom Tune" checkbox</li>
          <li> "Show Popup Notification" checkbox</li>
       </ul><br>
-      ***NOTE: To re-enable the 'Play Custom Tune' option, the user must first browse for a ".wav" file to be played when the monitoring detects their desired level of charge has been reached.***<br><br>
+      <b><i>NOTE: To re-enable the 'Play Custom Tune' option, the user must first browse for a ".wav" file to be played when the monitoring detects their desired level of charge has been reached.</i></b><br><br>
       To play a custom tune, the user needs to check the "Play Custom Tune" checkbox after it is enabled.<br>
       <b><i>It is not enough to just browse for a tune to play.</b></i><br>
-      The "Show Popup Notification" checkbox will generate a popup to notify the user when the battery reaches the pre-set desired percentage.
+      The "Show Popup Notification" checkbox will generate a popup to notify the user when the battery reaches the pre-set desired percentage.<br>
 
    ### In the bottom section:
 
