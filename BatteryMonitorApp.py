@@ -1,4 +1,3 @@
-#import concurrent.futures
 import psutil
 import tkinter as tk
 from tkinter import messagebox
@@ -9,23 +8,10 @@ import threading
 import os
 import time
 
-# The alternative of winsound for Linux and macOS, also works for windows
-#try:
-#    import winsound
-#except ImportError:
-#    import os
-#    def playsound(frequency,duration):
-#        #apt-get install beep
-#        os.system('beep -f %s -l %s' % (frequency,duration))
-#else:
-#    def playsound(frequency,duration):
-#        winsound.Beep(frequency,duration)
-
-battery = psutil.sensors_battery()
-
 class BatteryMonitorApp:
 
     def get_current_percentage(self):
+        battery = psutil.sensors_battery()
         if battery:
             return battery.percent
         return 0
@@ -33,13 +19,14 @@ class BatteryMonitorApp:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Battery Monitoring App") # Title
-        self.root.geometry("550x300") # App dimentions
+        self.root.geometry("450x300") # App dimentions
         self.is_monitoring = False
-        
+        self.charge_level_thread = None
+
         #Define Application Variables
         current_percentage = self.get_current_percentage()
         suggested_percentage = 100
-        
+
         # Calculate the suggested percentage
         if current_percentage <= 50:
             suggested_percentage = 100 - current_percentage
@@ -47,7 +34,7 @@ class BatteryMonitorApp:
             suggested_message = "It is not recommended to start charging on a higher than 50% state of charge."
 
         #region Top 
-         
+
         # Create a frame for the top section of the window
         top_frame = tk.Frame(self.root)
         top_frame.pack(pady=10)
@@ -59,7 +46,7 @@ class BatteryMonitorApp:
             suggested_percentage_Label = tk.Label(top_frame, text="Suggested percentage: "+ f"{suggested_percentage}%")
             suggested_percentage_Label.pack()    
         else:
-            suggested_messageLabel = tk.Label(top_frame, text= f"{suggested_message}")
+            suggested_messageLabel = tk.Label(top_frame, text= f"{suggested_message}", fg= "red")
             suggested_messageLabel.pack()
 
         self.label = tk.Label(top_frame, text="Desired charging percentage: ")
@@ -100,12 +87,12 @@ class BatteryMonitorApp:
         # Create a frame for the bottom section of the window
         bottom_frame = tk.Frame(self.root)
         bottom_frame.pack(pady=5)
-        
+
         # Create a frame for the monitoring buttons
         button_frame = tk.Frame(self.root)
         button_frame.pack(pady=5)
-        
-       
+
+
         self.enable_button = tk.Button(button_frame, text="Enable Monitoring", command=self.start_monitoring)
         self.enable_button.pack(side=tk.LEFT, padx=10)
 
@@ -138,13 +125,14 @@ class BatteryMonitorApp:
             self.custom_tune_path = None    # Clear the selected tune path
             self.custom_tune_name_label.config(text="Selected Tune: None")  # Clear the tune name label
 
-    
+
     def stop_monitoring(self):
         self.desired_percentage = self.get_current_percentage()
         self.is_monitoring = False
         if self.is_monitoring:
             try:
                 self.monitor_thread.join()
+                self.charge_level_thread.join()
                 self.reset_gui()
             except RuntimeError:
                 messagebox.showerror("Runtime Error","Could not join thread")
@@ -153,9 +141,10 @@ class BatteryMonitorApp:
 
     def monitor_battery(self, desired_percentage):
         while self.is_monitoring:
+            battery = psutil.sensors_battery()
             if battery:
                 current_percentage = battery.percent 
-                if battery.power_plugged:
+                if psutil.sensors_battery().power_plugged:
                     if current_percentage == desired_percentage:
                         if self.play_sound_var.get() and self.custom_tune_path:
                             winsound.PlaySound(self.custom_tune_path, winsound.SND_FILENAME)
@@ -176,7 +165,7 @@ class BatteryMonitorApp:
         if self.is_monitoring:
             messagebox.showinfo("Monitoring Active", "Monitoring is already active.")
             return
-        # Define gloabal var instead of using psutil.sensors... every time
+
         current_percentage = self.get_current_percentage()
         desired_percentage = self.percentage_slider.get()
         is_plugged = psutil.sensors_battery().power_plugged
@@ -187,20 +176,24 @@ class BatteryMonitorApp:
                 return
 
         if current_percentage > desired_percentage:
-            messagebox.showinfo("Very Funny!", "You cannot charge less than your current charge level!")
+            messagebox.showinfo("Very Funny!", "You can only charge above your current charge level!")
             return
 
         if is_plugged:
-            self.is_monitoring = True
-            self.monitor_thread = threading.Thread(target=self.monitor_battery, args=(desired_percentage,))
-            self.monitor_thread.daemon = True
-            self.monitor_thread.start()
+            if self.is_monitoring == False:
+                self.monitor_thread = threading.Thread(target=self.monitor_battery, args=(desired_percentage,))
+                self.monitor_thread.daemon = True
+                self.monitor_thread.start()
+                self.is_monitoring = True
 
-            #Create a thread to dyamically update the percentage
-            charge_level_thread = threading.Thread(target=self.update_charge_level)
-            charge_level_thread.daemon = True
-            charge_level_thread.start()
-
+            if self.charge_level_thread:
+                pass
+            else:
+                #Create a thread to dyamically update the percentage
+                self.charge_level_thread = threading.Thread(target=self.update_charge_level)
+                self.charge_level_thread.daemon = True
+                self.charge_level_thread.start()
+            
             self.enable_button.config(state=tk.DISABLED)
             self.disable_button.config(state=tk.NORMAL)
             self.percentage_slider.configure(state=tk.DISABLED)
@@ -210,7 +203,7 @@ class BatteryMonitorApp:
         else:
             messagebox.showerror("Monitoring Interrupted", "Charging Stopped")
             self.stop_monitoring()
-            
+
     def browse_custom_tune(self):
             # Open a file dialog for the user to select a custom tune file
             tune_file = filedialog.askopenfilename(filetypes=[("Audio Files", "*.wav")])
