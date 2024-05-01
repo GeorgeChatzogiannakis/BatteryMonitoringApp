@@ -1,15 +1,15 @@
-import psutil
-import tkinter as tk
 from tkinter import messagebox
 from tkinter import filedialog
-from tkinter import ttk
-import winsound
+from pygame import mixer
+import tkinter as tk
 import threading
-import os
+import psutil
 import time
+import sys
+import os
 
 class BatteryMonitorApp:
-
+    
     def get_current_percentage(self):
         battery = psutil.sensors_battery()
         if battery:
@@ -18,6 +18,7 @@ class BatteryMonitorApp:
 
     def __init__(self):
         self.root = tk.Tk()
+        iconPath = self.resource_path("Battery.ico")
         self.root.title("Battery Monitoring App") # Title
         self.root.geometry("450x300") # App dimentions
         self.is_monitoring = False
@@ -93,7 +94,7 @@ class BatteryMonitorApp:
         button_frame.pack(pady=5)
 
 
-        self.enable_button = tk.Button(button_frame, text="Enable Monitoring", command=self.start_monitoring)
+        self.enable_button = tk.Button(button_frame, text="Enable Monitoring", command=lambda: self.start_monitoring(self.custom_tune_path))
         self.enable_button.pack(side=tk.LEFT, padx=10)
 
         self.disable_button = tk.Button(button_frame, text="Disable Monitoring", state=tk.DISABLED,command=self.stop_monitoring)
@@ -125,7 +126,6 @@ class BatteryMonitorApp:
             self.custom_tune_path = None    # Clear the selected tune path
             self.custom_tune_name_label.config(text="Selected Tune: None")  # Clear the tune name label
 
-
     def stop_monitoring(self):
         self.desired_percentage = self.get_current_percentage()
         self.is_monitoring = False
@@ -139,20 +139,19 @@ class BatteryMonitorApp:
             self.is_monitoring = False
         self.reset_gui()
 
-    def monitor_battery(self, desired_percentage):
+    def monitor_battery(self, desired_percentage, tune_file):
         while self.is_monitoring:
             battery = psutil.sensors_battery()
             if battery:
                 current_percentage = battery.percent 
                 if psutil.sensors_battery().power_plugged:
                     if current_percentage == desired_percentage:
-                        if self.play_sound_var.get() and self.custom_tune_path:
-                            winsound.PlaySound(self.custom_tune_path, winsound.SND_FILENAME)
-                            self.reset_gui()
-                        if self.show_popup_var.get():
+                        if self.play_sound_var.get() == 1 and self.custom_tune_path != "":
+                            self.stop_monitoring()
+                            sound = mixer.Sound(tune_file)
+                            sound.play()
+                        if self.show_popup_var.get() == 1:
                             messagebox.showinfo("Charging Complete", f"Battery reached {desired_percentage}%.")
-                            self.reset_gui()
-                        self.stop_monitoring()
                         self.reset_gui()
                         break
                 else:
@@ -160,7 +159,7 @@ class BatteryMonitorApp:
                     self.stop_monitoring()
                     self.reset_gui()
 
-    def start_monitoring(self):
+    def start_monitoring(self, tune_file):
         # Check if monitoring is already active
         if self.is_monitoring:
             messagebox.showinfo("Monitoring Active", "Monitoring is already active.")
@@ -177,11 +176,13 @@ class BatteryMonitorApp:
 
         if current_percentage > desired_percentage:
             messagebox.showinfo("Very Funny!", "You can only charge above your current charge level!")
+        elif current_percentage == desired_percentage:
+            messagebox.showinfo("Requirement already fulfilled","Your current battery percentage\nmatches the desired level of charge")
             return
 
         if is_plugged:
             if self.is_monitoring == False:
-                self.monitor_thread = threading.Thread(target=self.monitor_battery, args=(desired_percentage,))
+                self.monitor_thread = threading.Thread(target=self.monitor_battery, args=(desired_percentage, tune_file))
                 self.monitor_thread.daemon = True
                 self.monitor_thread.start()
                 self.is_monitoring = True
@@ -206,24 +207,30 @@ class BatteryMonitorApp:
 
     def browse_custom_tune(self):
             # Open a file dialog for the user to select a custom tune file
-            tune_file = filedialog.askopenfilename(filetypes=[("Audio Files", "*.wav")])
+            tune_file = filedialog.askopenfilename(filetypes=[("Audio Files", "*.wav"),("Audio Files","*.mp3")])
             if tune_file:
                 self.custom_tune_path = tune_file
+                mixer.init()
+                try:
+                    mixer.music.load(tune_file)
+                except Exception:
+                    messagebox.showerror("Unsupported File","Could not read file. Please select another sound")
+                    return
                 tune_filename = os.path.basename(tune_file)
                 self.custom_tune_name_label.config(text=f"Selected Tune: {tune_filename}")
                 self.play_sound_checkbox.config(state=tk.NORMAL)
                 self.check_enable_button_state()  # Check the state of the Enable Monitoring button
+                return tune_file
 
     def update_charge_level(self,):
       while True:
          current_percentage = self.get_current_percentage()
          self.charge_label.config(text=f"Charge Level: {current_percentage}%")
-         time.sleep(60)  # Update every minute (adjust as needed)
-         #self.check_enable_button_state()  # Check the state of the Enable Monitoring button
+         time.sleep(30)  # Update every minute (adjust as needed)
 
     def check_enable_button_state(self):
         # Check the state of the Enable Monitoring button based on checkbox states
-        if (self.play_sound_var.get() and self.custom_tune_path) or self.show_popup_var.get():
+        if (self.play_sound_var.get() == 1 and self.custom_tune_path != "" or self.show_popup_var.get() == 1):
             self.enable_button.config(state=tk.NORMAL)
         else:
             self.enable_button.config(state=tk.DISABLED)
