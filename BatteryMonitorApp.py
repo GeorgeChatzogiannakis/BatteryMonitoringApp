@@ -43,7 +43,7 @@ class BatteryMonitorApp:
         self.charge_label = tk.Label(top_frame, text=f"Charge Level: {self.get_current_percentage()}%")        
         self.charge_label.pack() #Display the battery percentage when the app onened#
 
-        if current_percentage < 50:
+        if current_percentage <= 50:
             suggested_percentage_Label = tk.Label(top_frame, text="Suggested percentage: "+ f"{suggested_percentage}%")
             suggested_percentage_Label.pack()    
         else:
